@@ -1,0 +1,1 @@
+//# sourceMappingURL=getResource.js.map

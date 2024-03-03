@@ -1,0 +1,12 @@
+{
+    "INVALID_REQUEST": "Please check the request",
+    "GENERAL_ERROR": "Some error occured",
+    "INCORRECT_PASSWORD": "Password is incorrect",
+    "USER_DOESNOT_EXIST": "The user doesn't exist",
+    "RESOURCE_DOESNOT_EXIST": "Nothing was found!",
+    "RESOURCE_COULDNOT_BE_CREATED": "The resource couldn't be created",
+    "RESOURCE_COULDNOT_BE_UPDATED": "The resource couldn't be updated",
+    "RESOURCE_COULDNOT_BE_DELETED": "The resource couldn't be deleted",
+    "AUTH_TOKEN_DOES_NOT_EXIST_IN_REQUEST": "Please send the authentication token in the request!",
+    "INCORRECT_AUTH_TOKEN": "The auth token is incorrect!"
+}
