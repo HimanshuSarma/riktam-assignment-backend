@@ -41,7 +41,7 @@ const validation = async (users: Array<string>, groupId: string) => {
 };
 
 
-const addUsersInGroupController = async (users: Array<string>, groupId: string, token: string): Promise<{
+const addUsersInGroupController = async (users: Array<string>, groupId: string, userId: string): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: {
@@ -56,17 +56,8 @@ const addUsersInGroupController = async (users: Array<string>, groupId: string, 
             return isRequestValid;
         }
 
-        const user: UserModelType = extractDataAndCallVerifyToken(token);
-
-        if (!user?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
-        }
-
-        const updatedChatRoom: DocumentOrErrorStringified = await addUsersInGroup(users, groupId, user?._id);
-        const chatMessages: DocumentArrayOrErrorStringified = await getAllChatMessages(groupId, user?._id);
+        const updatedChatRoom: DocumentOrErrorStringified = await addUsersInGroup(users, groupId, userId);
+        const chatMessages: DocumentArrayOrErrorStringified = await getAllChatMessages(groupId, userId);
 
         if (typeof updatedChatRoom === 'string') {
             const err = JSON.parse(updatedChatRoom);

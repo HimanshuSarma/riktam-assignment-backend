@@ -10,8 +10,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { z } from 'zod';
 import { addUsersInGroup } from '../../db/abstractedQueries/Group/addUsersInGroup.js';
 import { getAllChatMessages } from '../../db/abstractedQueries/Chat/getAllChatMessages.js';
-import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 import { mongoErrors } from '../../staticData/mongodbErrors.js';
 const validation = (users, groupId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -38,21 +36,14 @@ const validation = (users, groupId) => __awaiter(void 0, void 0, void 0, functio
         };
     }
 });
-const addUsersInGroupController = (users, groupId, token) => __awaiter(void 0, void 0, void 0, function* () {
+const addUsersInGroupController = (users, groupId, userId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const isRequestValid = yield validation(users, groupId);
         if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
             return isRequestValid;
         }
-        const user = extractDataAndCallVerifyToken(token);
-        if (!(user === null || user === void 0 ? void 0 : user._id)) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            };
-        }
-        const updatedChatRoom = yield addUsersInGroup(users, groupId, user === null || user === void 0 ? void 0 : user._id);
-        const chatMessages = yield getAllChatMessages(groupId, user === null || user === void 0 ? void 0 : user._id);
+        const updatedChatRoom = yield addUsersInGroup(users, groupId, userId);
+        const chatMessages = yield getAllChatMessages(groupId, userId);
         if (typeof updatedChatRoom === 'string') {
             const err = JSON.parse(updatedChatRoom);
             console.log(err, updatedChatRoom, 'errorObj');

@@ -1,4 +1,4 @@
-declare const getAllChatMessagesController: (roomId: string, token: string) => Promise<{
+declare const getAllChatMessagesController: (roomId: string, userId: string) => Promise<{
     success: boolean;
     errorMessage?: any;
     payload?: any;

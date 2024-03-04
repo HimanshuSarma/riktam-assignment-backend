@@ -9,6 +9,13 @@ import { editMessageController } from '../../controllers/chatControllers/editMes
 import { likeOrUnlikeMessageController } from '../../controllers/chatControllers/likeMessage.js';
 import { deleteMessageController } from '../../controllers/chatControllers/deleteMessage.js';
 import { createGroupController } from '../../controllers/groupControllers/createGroup.js';
+import { UserModelType } from '../../types/db/mongodb/models/User.js';
+
+import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
+import { actionOnAllSocketConnectionsOfAUser } from '../../utils/socketUtils/actionOnAllSocketConnectionsOfAUser.js';
+import { verifyJWTTokenAndSendAck } from '../../utils/socketUtils/verifyJWTTokenAndSendAck.js';
+
+import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 
 const establishChatRoomEvents = (socket: Socket) => {
 
@@ -17,30 +24,58 @@ const establishChatRoomEvents = (socket: Socket) => {
             return;
         }
 
-        const res = await isUserParticipantOfGivenChatRooms(allChatRooms, userId, token);
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`joinChatRoomsAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
 
-        console.log(res, allChatRooms, 'joinChatRooms');
+        if (!user?._id) {
+            return;
+        }
+
+        const res = await isUserParticipantOfGivenChatRooms(allChatRooms, userId);
+
+        console.log(global?.connectedSockets, 'joinChatRooms');
 
         if (res?.success) {
             socket.join(allChatRooms);
-            connectedSockets[userId] = socket;
         }
     });
 
     socket.on(`addChatRoom`, async ({ name, users, token } : { name: string, users: Array<string>, token: string }) => {
         console.log(name, users, 'addChatRoom');
-        const queryRes = await createGroupController({ name, users, token });
 
-        global.socketIO.to(socket.id).emit(`addChatRoomAck`, {
-            ...queryRes,
-            emitter: true
-        }, users);
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`addChatRoomAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
+
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await createGroupController({ name, users, user });
+
+        actionOnAllSocketConnectionsOfAUser(user?._id, (socket: Socket) => {
+            global.socketIO.to(socket?.id).emit(`addChatRoomAck`, {
+                ...queryRes,
+                emitter: true
+            }, users);
+        });
 
         if (queryRes?.success) {
-            console.log(queryRes, 'addChatRoomResponse');
+            socket.join(queryRes?.payload?._id);
+            console.log(global?.connectedSockets, users, 'addChatRoomResponse');
             for (let i = 0; i < users?.length; i++) {
-                global?.connectedSockets?.[users?.[i]]?.join?.(queryRes?.payload?._id);
-                socket.join(queryRes?.payload?._id);
+                actionOnAllSocketConnectionsOfAUser(users?.[i], (socketConnection: Socket) => {
+                    socketConnection?.join(queryRes?.payload?._id);
+                });
             }
 
             global.socketIO.to(users).emit(`addChatRoomBroadcast`, queryRes);
@@ -48,23 +83,44 @@ const establishChatRoomEvents = (socket: Socket) => {
     });
 
     socket.on(`addUsersInChatRoom`, async (users: Array<string>, groupId: string, token: string) => {
-        const queryRes = await addUsersInGroupController(users, groupId, token);
+
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`addUsersInChatRoomAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
+
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await addUsersInGroupController(users, groupId, user?._id);
 
         console.log(users, groupId, queryRes, 'addUsersInChatRoom');
 
-        global.socketIO.to(socket.id).emit(`addUsersInChatRoomAck`, {
-            ...queryRes,
-            payload: {
-                ...queryRes?.payload,
-                users
-            }
+        actionOnAllSocketConnectionsOfAUser(user?._id, (socketConnection: Socket) => {
+            global.socketIO.to(socketConnection?.id).emit(`addUsersInChatRoomAck`, {
+                ...queryRes,
+                payload: {
+                    ...queryRes?.payload,
+                    users
+                }
+            });
         });
 
         if (queryRes?.success) {
             console.log(queryRes, 'response');
 
             for (let i = 0; i < users?.length; i++) {
-                global?.connectedSockets?.[users?.[i]]?.join?.(groupId);
+                // Object.entries(global?.connectedSockets?.[users?.[i]] || {})?.forEach?.((socketConnection) => {
+                //     socketConnection?.[1]?.join(groupId);
+                // });
+
+                actionOnAllSocketConnectionsOfAUser(users?.[i], (socketConnection: Socket) => {
+                    socketConnection?.join(groupId);
+                });
             }
 
             socket.to(groupId).emit(`addUsersInChatRoomBroadcast`, queryRes);
@@ -74,22 +130,37 @@ const establishChatRoomEvents = (socket: Socket) => {
 
     socket.on(`removeUsersFromChatRoom`, async (users: Array<string>, groupId: string, token: string) => {
         console.log(users, 'removeUserFromChatRoom');
-        const queryRes = await removeUsersFromGroupController(users, groupId, token);
+
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`removeUsersFromChatRoomAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
+
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await removeUsersFromGroupController(users, groupId, user?._id);
 
         // global.socketIO.to(socket.id).emit(`removeUsersFromChatRoomAck`, queryRes?.success, queryRes?.payload, users);
-        global.socketIO.to(socket.id).emit(`removeUsersFromChatRoomAck`, {
-            ...queryRes,
-            payload: {
-                ...queryRes?.payload,
-                users
-            }
+        actionOnAllSocketConnectionsOfAUser(user?._id, (socketConnection: Socket) => {
+            global.socketIO.to(socketConnection?.id).emit(`removeUsersFromChatRoomAck`, {
+                ...queryRes,
+                payload: {
+                    ...queryRes?.payload,
+                    users
+                }
+            });
         });
 
         if (queryRes?.success) {
             for (let i = 0; i < users?.length; i++) {
-                const socketConnectionsInChatRoom = await global.socketIO.of(`/`).in(groupId).fetchSockets();
-                const userSocket = socketConnectionsInChatRoom.find(socket => socket.id.toString() === global.connectedSockets?.[users?.[i]]?.id);
-                userSocket?.leave(groupId);
+                actionOnAllSocketConnectionsOfAUser(users?.[i], (socketConnection: Socket) => {
+                    socketConnection?.leave(groupId);
+                });
             }
             
             socket.to(groupId).emit(`removeUsersFromChatRoomBroadcast`, queryRes);
@@ -98,38 +169,117 @@ const establishChatRoomEvents = (socket: Socket) => {
     });
 
     socket.on(`getAllChatMessages`, async (roomId: string, token: string) => {
-        const queryRes = await getAllChatMessagesController(roomId, token);
+
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`getAllChatMessagesAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
+
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await getAllChatMessagesController(roomId, user?._id);
         // global.socketIO.to(socket.id).emit('getAllChatMessagesAck', queryRes, roomId);
-        global.socketIO.to(socket.id).emit('getAllChatMessagesAck', {
-            ...queryRes,
-            payload: {
-                ...queryRes?.payload,
-                roomId
-            }
+        // global.socketIO.to(socket.id).emit('getAllChatMessagesAck', {
+        //     ...queryRes,
+        //     payload: {
+        //         ...queryRes?.payload,
+        //         roomId
+        //     }
+        // });
+
+        actionOnAllSocketConnectionsOfAUser(user?._id, (socketConnection: Socket) => {
+            global.socketIO.to(socketConnection?.id).emit('getAllChatMessagesAck', {
+                ...queryRes,
+                payload: {
+                    ...queryRes?.payload,
+                    roomId
+                }
+            });
         });
     });
 
     socket.on(`newMessage`, async (message: string, roomId: string, token: string) => {
-        const queryRes = await createNewMessageController(message, roomId, token);
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`newMessageAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
+
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await createNewMessageController(message, roomId, user);
+
+        global.socketIO.to(socket?.id)?.emit(`newMessageAck`, {
+            ...queryRes,
+            emitter: true
+        });
 
         if (queryRes?.success) {
-            global.socketIO.in(roomId).emit('newMessageBroadcast', queryRes);
+            socket.to(roomId).emit('newMessageBroadcast', queryRes);
         }
     });
 
     socket.on(`editMessage`, async (message: string, messageId: string, roomId: string, token: string) => {
-        const queryRes = await editMessageController(message, messageId, token);
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`editMessageAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
 
-        if (queryRes?.success) {
-            global.socketIO.in(roomId).emit('editMessageBroadcast', queryRes);
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await editMessageController(message, messageId, roomId, user);
+
+        global.socketIO.to(socket?.id)?.emit(`editMessageAck`, {
+            ...queryRes,
+            emitter: true
+        });
+
+        if (queryRes?.success) {    
+            socket.to(roomId).emit('editMessageBroadcast', queryRes);
         }
     });
 
     socket.on(`deleteMessage`, async (messageId: string, roomId: string, token: string) => {
-        const queryRes = await deleteMessageController(messageId, token);
+
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`deleteMessageAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
+
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await deleteMessageController(messageId, roomId, user);
+
+        global.socketIO.to(socket?.id)?.emit(`deleteMessageAck`, {
+            ...queryRes,
+            payload: {
+                messageId,
+                roomId
+            },
+            emitter: true
+        });
 
         if (queryRes?.success) {
-            global.socketIO.in(roomId).emit('deleteMessageBroadcast', {
+            socket.to(roomId).emit('deleteMessageBroadcast', {
                 ...queryRes,
                 payload: {
                     messageId,
@@ -141,12 +291,29 @@ const establishChatRoomEvents = (socket: Socket) => {
 
     socket.on(`likeOrUnlikeMessage`, async (messageId: string, action: 'like' | 'unlike', roomId: string, token: string) => {
         console.log('likeOrUnlikeMessage', messageId, action, roomId);
-        const queryRes = await likeOrUnlikeMessageController(messageId, roomId, action, token);
+        const user = verifyJWTTokenAndSendAck(token, (socketConnection: Socket) => {
+            global.socketIO?.to(socketConnection?.id)?.emit(`likeOrUnlikeMessageAck`, {
+                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN,
+                success: false,
+                emitter: (socket?.id === socketConnection?.id)
+            })
+        });
+
+        if (!user?._id) {
+            return;
+        }
+
+        const queryRes = await likeOrUnlikeMessageController(messageId, roomId, action, user);
 
         console.log('likeOrUnlikeMessage', queryRes);
+        
+        global.socketIO.to(socket?.id)?.emit(`likeOrUnlikeMessageAck`, {
+            ...queryRes,
+            emitter: true
+        });
 
         if (queryRes?.success) {
-            global.socketIO.in(roomId).emit('likeOrUnlikeMessageBroadcast', queryRes);
+            socket.to(roomId).emit('likeOrUnlikeMessageBroadcast', queryRes);
         }
     });
 };

@@ -9,9 +9,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { z } from 'zod';
 import { deleteChatMessage } from '../../db/abstractedQueries/Chat/deleteMessage.js';
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
-import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
-const validation = (messageId, token) => __awaiter(void 0, void 0, void 0, function* () {
+import { isUserParticipantOfGivenChatRooms } from '../groupControllers/isUserParticipantOfGivenChatRooms.js';
+const validation = (messageId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // const schema = z.string({
         //     required_error: 'Message is required'
@@ -20,14 +19,10 @@ const validation = (messageId, token) => __awaiter(void 0, void 0, void 0, funct
         const schema = z.object({
             messageId: z.string({
                 required_error: 'Message id is required!'
-            }),
-            token: z.string({
-                required_error: 'Token is required!'
             })
         });
         yield schema.parseAsync({
             messageId,
-            token
         });
         return {
             success: true
@@ -40,18 +35,15 @@ const validation = (messageId, token) => __awaiter(void 0, void 0, void 0, funct
         };
     }
 });
-const deleteMessageController = (messageId, token) => __awaiter(void 0, void 0, void 0, function* () {
+const deleteMessageController = (messageId, roomId, user) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const isRequestValid = yield validation(messageId, token);
+        const isRequestValid = yield validation(messageId);
         if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
             return isRequestValid;
         }
-        const user = extractDataAndCallVerifyToken(token);
-        if (!(user === null || user === void 0 ? void 0 : user._id)) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            };
+        const isUserParticipantOfChatRoom = yield isUserParticipantOfGivenChatRooms([roomId], user === null || user === void 0 ? void 0 : user._id);
+        if (!(isUserParticipantOfChatRoom === null || isUserParticipantOfChatRoom === void 0 ? void 0 : isUserParticipantOfChatRoom.success)) {
+            return isUserParticipantOfChatRoom;
         }
         const deletedMessage = yield deleteChatMessage(messageId, user === null || user === void 0 ? void 0 : user._id);
         if (typeof deletedMessage === 'string') {

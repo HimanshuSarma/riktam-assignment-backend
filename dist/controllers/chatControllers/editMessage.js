@@ -9,9 +9,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { z } from 'zod';
 import { editChatMessage } from '../../db/abstractedQueries/Chat/editMessage.js';
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
-import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
-const validation = (message, messageId, token) => __awaiter(void 0, void 0, void 0, function* () {
+import { isUserParticipantOfGivenChatRooms } from '../groupControllers/isUserParticipantOfGivenChatRooms.js';
+const validation = (message, messageId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // const schema = z.string({
         //     required_error: 'Message is required'
@@ -23,15 +22,11 @@ const validation = (message, messageId, token) => __awaiter(void 0, void 0, void
             }),
             messageId: z.string({
                 required_error: 'Message id is required!'
-            }),
-            token: z.string({
-                required_error: 'Token is required!'
             })
         });
         yield schema.parseAsync({
             message,
             messageId,
-            token
         });
         return {
             success: true
@@ -44,18 +39,15 @@ const validation = (message, messageId, token) => __awaiter(void 0, void 0, void
         };
     }
 });
-const editMessageController = (message, messageId, token) => __awaiter(void 0, void 0, void 0, function* () {
+const editMessageController = (message, messageId, roomId, user) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const isRequestValid = yield validation(message, messageId, token);
+        const isRequestValid = yield validation(message, messageId);
         if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
             return isRequestValid;
         }
-        const user = extractDataAndCallVerifyToken(token);
-        if (!(user === null || user === void 0 ? void 0 : user._id)) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            };
+        const isUserParticipantOfChatRoom = yield isUserParticipantOfGivenChatRooms([roomId], user === null || user === void 0 ? void 0 : user._id);
+        if (!(isUserParticipantOfChatRoom === null || isUserParticipantOfChatRoom === void 0 ? void 0 : isUserParticipantOfChatRoom.success)) {
+            return isUserParticipantOfChatRoom;
         }
         const editedMessage = yield editChatMessage(message, messageId, user === null || user === void 0 ? void 0 : user._id);
         if (typeof editedMessage === 'string') {

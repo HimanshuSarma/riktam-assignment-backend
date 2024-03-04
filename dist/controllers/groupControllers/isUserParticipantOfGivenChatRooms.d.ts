@@ -1,4 +1,4 @@
-declare const isUserParticipantOfGivenChatRooms: (chatRooms: Array<string>, userId: string, token: string) => Promise<{
+declare const isUserParticipantOfGivenChatRooms: (chatRooms: Array<string>, userId: string) => Promise<{
     success: boolean;
     errorMessage?: any;
     payload?: any;

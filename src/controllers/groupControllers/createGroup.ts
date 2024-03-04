@@ -13,7 +13,7 @@ import { UserModelType } from '../../types/db/mongodb/models/User.js';
 import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 import { mongoErrors } from '../../staticData/mongodbErrors.js';
 
-const validation = async ({ name, users, token } : { name: string, users: Array<string>, token: string }): Promise<{
+const validation = async ({ name, users } : { name: string, users: Array<string> }): Promise<{
     success: boolean,
     errorMessage?: string
 }> => {
@@ -21,9 +21,6 @@ const validation = async ({ name, users, token } : { name: string, users: Array<
         const schema = z.object({
             name: z.string({
                 required_error: 'Name is required!'
-            }),
-            token: z.string({
-                required_error: 'Token is required!'
             }),
             users: z.array(
                 z.string({
@@ -35,7 +32,6 @@ const validation = async ({ name, users, token } : { name: string, users: Array<
         await schema.parseAsync({
             name,
             users,
-            token
         });
 
         return {
@@ -50,27 +46,18 @@ const validation = async ({ name, users, token } : { name: string, users: Array<
     }
 };
 
-const createGroupController = async ({ name, users, token } : { name: string, users: Array<string>, token: string }): Promise<{
+const createGroupController = async ({ name, users, user } : { name: string, users: Array<string>, user: any }): Promise<{
     success: boolean,
     errorMessage?: string,
     payload?: any
 }> => {
     try {
 
-        const isRequestValid = await validation({ name, users, token });
+        const isRequestValid = await validation({ name, users });
 
         if (!isRequestValid?.success) {
             return isRequestValid;
         };
-
-        const user: UserModelType = extractDataAndCallVerifyToken(token);
-
-        if (!user?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
-        }
 
         const newGroup: GroupModelType = {
             name,

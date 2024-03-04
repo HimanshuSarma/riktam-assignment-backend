@@ -9,8 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { z } from 'zod';
 import { createNewChatMessage } from '../../db/abstractedQueries/Chat/createNewChatMessage.js';
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
-import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
+import { isUserParticipantOfGivenChatRooms } from '../groupControllers/isUserParticipantOfGivenChatRooms.js';
 const validation = (message) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const schema = z.string({
@@ -29,18 +28,11 @@ const validation = (message) => __awaiter(void 0, void 0, void 0, function* () {
         };
     }
 });
-const createNewMessageController = (message, roomId, token) => __awaiter(void 0, void 0, void 0, function* () {
+const createNewMessageController = (message, roomId, user) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const isRequestValid = yield validation(message);
         if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
             return isRequestValid;
-        }
-        const user = extractDataAndCallVerifyToken(token);
-        if (!(user === null || user === void 0 ? void 0 : user._id)) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            };
         }
         const newChatMessage = {
             message,
@@ -50,6 +42,10 @@ const createNewMessageController = (message, roomId, token) => __awaiter(void 0,
             likes: [],
             unlikes: []
         };
+        const isUserParticipantOfChatRoom = yield isUserParticipantOfGivenChatRooms([roomId], user === null || user === void 0 ? void 0 : user._id);
+        if (!(isUserParticipantOfChatRoom === null || isUserParticipantOfChatRoom === void 0 ? void 0 : isUserParticipantOfChatRoom.success)) {
+            return isUserParticipantOfChatRoom;
+        }
         const createdNewChatMessage = yield createNewChatMessage(newChatMessage);
         if (typeof createdNewChatMessage === 'string') {
             const err = JSON.parse(createdNewChatMessage);

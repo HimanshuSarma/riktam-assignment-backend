@@ -10,20 +10,16 @@ import { extractDataAndCallVerifyToken } from "../../utils/middlewareDataExtract
 import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 import { mongoErrors } from "../../staticData/mongodbErrors.js";
 
-const validation = async function (roomId: string, token: string) {
+const validation = async function (roomId: string) {
     try {
         const schema = z.object({
             roomId: z.string({
                 required_error: `Room id is required!`
             }),
-            token: z.string({
-                required_error: `Token is required!`
-            })
         })
 
         await schema.parseAsync({
             roomId,
-            token
         });
         
         return {
@@ -38,28 +34,19 @@ const validation = async function (roomId: string, token: string) {
     }
 };
 
-const getAllChatMessagesController = async function (roomId: string, token: string): Promise<{
+const getAllChatMessagesController = async function (roomId: string, userId: string): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: any
 }> {
     try {
-        const isRequestValid = await validation(roomId, token);
+        const isRequestValid = await validation(roomId);
         console.log(isRequestValid, 'validity');
         if (!isRequestValid?.success) {
             return isRequestValid;
         }
 
-        const user: UserModelType = extractDataAndCallVerifyToken(token);
-
-        if (!user?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
-        }
-
-        const fetchedAllChatMessages = await getAllChatMessages(roomId, user?._id);
+        const fetchedAllChatMessages = await getAllChatMessages(roomId, userId);
 
         if (typeof fetchedAllChatMessages === 'string') {
             const err = JSON.parse(fetchedAllChatMessages);

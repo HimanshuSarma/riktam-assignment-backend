@@ -9,23 +9,17 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { z, } from 'zod';
 import { getAllChatMessages } from '../../db/abstractedQueries/Chat/getAllChatMessages.js';
-import { extractDataAndCallVerifyToken } from "../../utils/middlewareDataExtractorUtils.js";
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 import { mongoErrors } from "../../staticData/mongodbErrors.js";
-const validation = function (roomId, token) {
+const validation = function (roomId) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const schema = z.object({
                 roomId: z.string({
                     required_error: `Room id is required!`
                 }),
-                token: z.string({
-                    required_error: `Token is required!`
-                })
             });
             yield schema.parseAsync({
                 roomId,
-                token
             });
             return {
                 success: true,
@@ -40,22 +34,15 @@ const validation = function (roomId, token) {
         }
     });
 };
-const getAllChatMessagesController = function (roomId, token) {
+const getAllChatMessagesController = function (roomId, userId) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const isRequestValid = yield validation(roomId, token);
+            const isRequestValid = yield validation(roomId);
             console.log(isRequestValid, 'validity');
             if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
                 return isRequestValid;
             }
-            const user = extractDataAndCallVerifyToken(token);
-            if (!(user === null || user === void 0 ? void 0 : user._id)) {
-                return {
-                    success: false,
-                    errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-                };
-            }
-            const fetchedAllChatMessages = yield getAllChatMessages(roomId, user === null || user === void 0 ? void 0 : user._id);
+            const fetchedAllChatMessages = yield getAllChatMessages(roomId, userId);
             if (typeof fetchedAllChatMessages === 'string') {
                 const err = JSON.parse(fetchedAllChatMessages);
                 return {

@@ -9,9 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { z } from 'zod';
 import { fetchChatRoomsGivenArrayOfChatRooms } from '../../db/abstractedQueries/Group/fetchChatRoomsGivenArrayOfChatRooms.js';
-import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
-const validation = (chatRooms, userId, token) => __awaiter(void 0, void 0, void 0, function* () {
+const validation = (chatRooms, userId) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const schema = z.object({
             userId: z.string({
@@ -19,15 +17,11 @@ const validation = (chatRooms, userId, token) => __awaiter(void 0, void 0, void 
             }),
             chatRooms: z.array(z.string({
                 required_error: `Chatrooms should be an array of ids`
-            })),
-            token: z.string({
-                required_error: `Token is required!`
-            })
+            }))
         });
         yield schema.parseAsync({
             userId,
             chatRooms,
-            token
         });
         return {
             success: true
@@ -40,19 +34,12 @@ const validation = (chatRooms, userId, token) => __awaiter(void 0, void 0, void 
         };
     }
 });
-const isUserParticipantOfGivenChatRooms = (chatRooms, userId, token) => __awaiter(void 0, void 0, void 0, function* () {
+const isUserParticipantOfGivenChatRooms = (chatRooms, userId) => __awaiter(void 0, void 0, void 0, function* () {
     var _a, _b, _c, _d, _e, _f;
     try {
-        const isRequestValid = yield validation(chatRooms, userId, token);
+        const isRequestValid = yield validation(chatRooms, userId);
         if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
             return isRequestValid;
-        }
-        const user = extractDataAndCallVerifyToken(token);
-        if (!(user === null || user === void 0 ? void 0 : user._id)) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            };
         }
         let isUserParticipantOfGivenChatRooms = true;
         const fetchedChatRooms = yield fetchChatRoomsGivenArrayOfChatRooms(chatRooms);
@@ -82,7 +69,7 @@ const isUserParticipantOfGivenChatRooms = (chatRooms, userId, token) => __awaite
         if (!isUserParticipantOfGivenChatRooms) {
             return {
                 success: false,
-                errorMessage: `You have to be a participant of all given chat rooms!`
+                errorMessage: `You have to be a participant of the chat room(s)`
             };
         }
         else {

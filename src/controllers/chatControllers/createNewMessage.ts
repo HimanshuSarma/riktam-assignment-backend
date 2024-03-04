@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
 import { createNewChatMessage } from '../../db/abstractedQueries/Chat/createNewChatMessage.js';
+import { isUserParticipantOfGivenChatRooms } from '../groupControllers/isUserParticipantOfGivenChatRooms.js';
 
 import { ChatModelType } from '../../types/db/mongodb/models/Chat.js';
 import { UserModelType } from '../../types/db/mongodb/models/User.js';
@@ -10,6 +11,7 @@ import { DocumentOrErrorStringified } from '../../types/db/mongodb/queryTypes.js
 
 import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 import { mongoErrors } from '../../staticData/mongodbErrors.js';
+
 import { verifyJWTToken } from '../../utils/jwt/verifyToken.js';
 import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
 
@@ -32,7 +34,7 @@ const validation = async (message: string) => {
     }
 }
 
-const createNewMessageController = async (message: string, roomId: string, token: string): Promise<{
+const createNewMessageController = async (message: string, roomId: string, user: UserModelType): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: any
@@ -44,15 +46,6 @@ const createNewMessageController = async (message: string, roomId: string, token
             return isRequestValid;
         }
 
-        const user: UserModelType = extractDataAndCallVerifyToken(token);
-
-        if (!user?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
-        }
-
         const newChatMessage: ChatModelType = {
             message,
             isEdited: false,
@@ -61,6 +54,12 @@ const createNewMessageController = async (message: string, roomId: string, token
             likes: [],
             unlikes: []
         };
+
+        const isUserParticipantOfChatRoom = await isUserParticipantOfGivenChatRooms([roomId], user?._id);
+
+        if (!isUserParticipantOfChatRoom?.success) {
+            return isUserParticipantOfChatRoom;
+        }
 
         const createdNewChatMessage: DocumentOrErrorStringified = await createNewChatMessage(newChatMessage);
 

@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { createNewChatMessage } from '../../db/abstractedQueries/Chat/createNewChatMessage.js';
 import { editChatMessage } from '../../db/abstractedQueries/Chat/editMessage.js';
 import { deleteChatMessage } from '../../db/abstractedQueries/Chat/deleteMessage.js';
+import { isUserParticipantOfGivenChatRooms } from '../groupControllers/isUserParticipantOfGivenChatRooms.js';
 
 import { ChatModelType } from '../../types/db/mongodb/models/Chat.js';
 import { UserModelType } from '../../types/db/mongodb/models/User.js';
@@ -15,7 +16,7 @@ import { mongoErrors } from '../../staticData/mongodbErrors.js';
 import { verifyJWTToken } from '../../utils/jwt/verifyToken.js';
 import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
 
-const validation = async (messageId: string, token: string) => {
+const validation = async (messageId: string) => {
     try {
         // const schema = z.string({
         //     required_error: 'Message is required'
@@ -25,15 +26,11 @@ const validation = async (messageId: string, token: string) => {
         const schema = z.object({
             messageId: z.string({
                 required_error: 'Message id is required!'
-            }),
-            token: z.string({
-                required_error: 'Token is required!'
             })
         })
 
         await schema.parseAsync({
             messageId,
-            token
         });
 
         return {
@@ -47,25 +44,22 @@ const validation = async (messageId: string, token: string) => {
     }
 }
 
-const deleteMessageController = async (messageId: string, token: string): Promise<{
+const deleteMessageController = async (messageId: string, roomId: string, user: UserModelType): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: any
 }> => {
     try {
-        const isRequestValid = await validation(messageId, token);
+        const isRequestValid = await validation(messageId);
 
         if (!isRequestValid?.success) {
             return isRequestValid;
         }
 
-        const user: UserModelType = extractDataAndCallVerifyToken(token);
+        const isUserParticipantOfChatRoom = await isUserParticipantOfGivenChatRooms([roomId], user?._id);
 
-        if (!user?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
+        if (!isUserParticipantOfChatRoom?.success) {
+            return isUserParticipantOfChatRoom;
         }
 
         const deletedMessage: DeleteDocumentOrErrorStringified = await deleteChatMessage(messageId, user?._id);

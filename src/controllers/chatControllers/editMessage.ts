@@ -4,17 +4,19 @@ import { z } from 'zod';
 
 import { createNewChatMessage } from '../../db/abstractedQueries/Chat/createNewChatMessage.js';
 import { editChatMessage } from '../../db/abstractedQueries/Chat/editMessage.js';
+import { isUserParticipantOfGivenChatRooms } from '../groupControllers/isUserParticipantOfGivenChatRooms.js';
 
 import { ChatModelType } from '../../types/db/mongodb/models/Chat.js';
 import { UserModelType } from '../../types/db/mongodb/models/User.js';
 import { DocumentOrErrorStringified } from '../../types/db/mongodb/queryTypes.js';
 
 import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
+
 import { mongoErrors } from '../../staticData/mongodbErrors.js';
 import { verifyJWTToken } from '../../utils/jwt/verifyToken.js';
 import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
 
-const validation = async (message: string, messageId: string, token: string) => {
+const validation = async (message: string, messageId: string) => {
     try {
         // const schema = z.string({
         //     required_error: 'Message is required'
@@ -27,16 +29,12 @@ const validation = async (message: string, messageId: string, token: string) => 
             }),
             messageId: z.string({
                 required_error: 'Message id is required!'
-            }),
-            token: z.string({
-                required_error: 'Token is required!'
             })
         })
 
         await schema.parseAsync({
             message,
             messageId,
-            token
         });
 
         return {
@@ -50,25 +48,22 @@ const validation = async (message: string, messageId: string, token: string) => 
     }
 }
 
-const editMessageController = async (message: string, messageId: string, token: string): Promise<{
+const editMessageController = async (message: string, messageId: string, roomId: string, user: UserModelType): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: any
 }> => {
     try {
-        const isRequestValid = await validation(message, messageId, token);
+        const isRequestValid = await validation(message, messageId);
 
         if (!isRequestValid?.success) {
             return isRequestValid;
         }
 
-        const user: UserModelType = extractDataAndCallVerifyToken(token);
+        const isUserParticipantOfChatRoom = await isUserParticipantOfGivenChatRooms([roomId], user?._id);
 
-        if (!user?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
+        if (!isUserParticipantOfChatRoom?.success) {
+            return isUserParticipantOfChatRoom;
         }
 
         const editedMessage: DocumentOrErrorStringified = await editChatMessage(message, messageId, user?._id);

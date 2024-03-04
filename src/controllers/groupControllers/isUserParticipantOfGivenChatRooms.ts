@@ -11,7 +11,7 @@ import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtract
 
 import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 
-const validation = async (chatRooms: Array<string>, userId: string, token: string): Promise<{
+const validation = async (chatRooms: Array<string>, userId: string): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: any
@@ -25,16 +25,12 @@ const validation = async (chatRooms: Array<string>, userId: string, token: strin
                 z.string({
                     required_error: `Chatrooms should be an array of ids`
                 })
-            ),
-            token: z.string({
-                required_error: `Token is required!`
-            })
+            )
         });
 
         await schema.parseAsync({
             userId,
             chatRooms,
-            token
         });
 
         return {
@@ -48,25 +44,16 @@ const validation = async (chatRooms: Array<string>, userId: string, token: strin
     }
 };
 
-const isUserParticipantOfGivenChatRooms = async (chatRooms: Array<string>, userId: string, token: string): Promise<{
+const isUserParticipantOfGivenChatRooms = async (chatRooms: Array<string>, userId: string): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: any
 }> => {
     try {
-        const isRequestValid = await validation(chatRooms, userId, token);
+        const isRequestValid = await validation(chatRooms, userId);
 
         if (!isRequestValid?.success) {
             return isRequestValid;
-        }
-
-        const user: UserModelType = extractDataAndCallVerifyToken(token);
-
-        if (!user?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
         }
 
         let isUserParticipantOfGivenChatRooms: boolean = true;
@@ -100,7 +87,7 @@ const isUserParticipantOfGivenChatRooms = async (chatRooms: Array<string>, userI
         if (!isUserParticipantOfGivenChatRooms) {
             return {
                 success: false,
-                errorMessage: `You have to be a participant of all given chat rooms!`
+                errorMessage: `You have to be a participant of the chat room(s)`
             }
         } else {
             return {

@@ -1,4 +1,4 @@
-declare const removeUsersFromGroupController: (users: Array<string>, groupId: string, token: string) => Promise<{
+declare const removeUsersFromGroupController: (users: Array<string>, groupId: string, userId: string) => Promise<{
     success: boolean;
     errorMessage?: any;
     payload?: any;

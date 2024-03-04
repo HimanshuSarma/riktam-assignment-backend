@@ -23,7 +23,7 @@
 /// <reference types="mongoose/types/virtuals.js" />
 /// <reference types="mongoose/types/inferschematype.js" />
 import { Document } from 'mongoose';
-declare const addUsersInGroupController: (users: Array<string>, groupId: string, token: string) => Promise<{
+declare const addUsersInGroupController: (users: Array<string>, groupId: string, userId: string) => Promise<{
     success: boolean;
     errorMessage?: any;
     payload?: {

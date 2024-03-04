@@ -9,17 +9,12 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { z } from 'zod';
 import { createNewGroup } from '../../db/abstractedQueries/Group/createNewGroup.js';
-import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
 import { mongoErrors } from '../../staticData/mongodbErrors.js';
-const validation = ({ name, users, token }) => __awaiter(void 0, void 0, void 0, function* () {
+const validation = ({ name, users }) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const schema = z.object({
             name: z.string({
                 required_error: 'Name is required!'
-            }),
-            token: z.string({
-                required_error: 'Token is required!'
             }),
             users: z.array(z.string({
                 required_error: 'Please check the users array!'
@@ -28,7 +23,6 @@ const validation = ({ name, users, token }) => __awaiter(void 0, void 0, void 0,
         yield schema.parseAsync({
             name,
             users,
-            token
         });
         return {
             success: true
@@ -42,20 +36,13 @@ const validation = ({ name, users, token }) => __awaiter(void 0, void 0, void 0,
         };
     }
 });
-const createGroupController = ({ name, users, token }) => __awaiter(void 0, void 0, void 0, function* () {
+const createGroupController = ({ name, users, user }) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const isRequestValid = yield validation({ name, users, token });
+        const isRequestValid = yield validation({ name, users });
         if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
             return isRequestValid;
         }
         ;
-        const user = extractDataAndCallVerifyToken(token);
-        if (!(user === null || user === void 0 ? void 0 : user._id)) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            };
-        }
         const newGroup = {
             name,
             users: users,

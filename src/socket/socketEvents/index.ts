@@ -6,8 +6,15 @@ const establishAllSocketEvents = () => {
     global.socketIO.on('connection', (socket: Socket) => {
         console.log('socket');
         socket.on(`joinOwnRoom`, (userId: string) => {
-            console.log('joinOwnRoom', userId);
             socket.join(userId);
+            global.connectedSockets = {
+                ...global.connectedSockets,
+                [userId]: {
+                    ...global?.connectedSockets?.[userId],
+                    [socket.id]: socket
+                }
+            };
+            console.log('joinOwnRoom', global?.connectedSockets);
         });
         establishChatRoomEvents(socket);
     });

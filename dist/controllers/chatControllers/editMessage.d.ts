@@ -1,4 +1,5 @@
-declare const editMessageController: (message: string, messageId: string, token: string) => Promise<{
+import { UserModelType } from '../../types/db/mongodb/models/User.js';
+declare const editMessageController: (message: string, messageId: string, roomId: string, user: UserModelType) => Promise<{
     success: boolean;
     errorMessage?: any;
     payload?: any;

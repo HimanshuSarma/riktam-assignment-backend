@@ -1,7 +1,7 @@
-declare const createGroupController: ({ name, users, token }: {
+declare const createGroupController: ({ name, users, user }: {
     name: string;
     users: Array<string>;
-    token: string;
+    user: any;
 }) => Promise<{
     success: boolean;
     errorMessage?: string;

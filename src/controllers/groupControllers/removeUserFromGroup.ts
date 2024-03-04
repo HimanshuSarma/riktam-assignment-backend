@@ -39,7 +39,7 @@ const validation = async (users: Array<string>, groupId: string) => {
 };
 
 
-const removeUsersFromGroupController = async (users: Array<string>, groupId: string, token: string): Promise<{
+const removeUsersFromGroupController = async (users: Array<string>, groupId: string, userId: string): Promise<{
     success: boolean,
     errorMessage?: any,
     payload?: any
@@ -53,16 +53,7 @@ const removeUsersFromGroupController = async (users: Array<string>, groupId: str
             return isRequestValid;
         }
 
-        const userData: UserModelType = extractDataAndCallVerifyToken(token);
-
-        if (!userData?._id) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            }
-        }
-
-        const removedUserFromGroup: DocumentOrErrorStringified = await removeUsersFromGroup(users, groupId, userData?._id);
+        const removedUserFromGroup: DocumentOrErrorStringified = await removeUsersFromGroup(users, groupId, userId);
 
         if (typeof removedUserFromGroup === 'string') {
             const err = JSON.parse(removedUserFromGroup);

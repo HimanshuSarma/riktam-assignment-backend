@@ -9,9 +9,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { z } from 'zod';
 import { likeOrUnlikeChatMessage } from '../../db/abstractedQueries/Chat/likeOrUnlikeChatMessage.js';
-import networkResponseErrors from '../../staticData/networkResponseErrors.json' assert { type: 'json' };
-import { extractDataAndCallVerifyToken } from '../../utils/middlewareDataExtractorUtils.js';
-const validation = (messageId, roomId, action, token) => __awaiter(void 0, void 0, void 0, function* () {
+import { isUserParticipantOfGivenChatRooms } from '../groupControllers/isUserParticipantOfGivenChatRooms.js';
+const validation = (messageId, roomId, action) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // const schema = z.string({
         //     required_error: 'Message is required'
@@ -24,16 +23,12 @@ const validation = (messageId, roomId, action, token) => __awaiter(void 0, void 
             roomId: z.string({
                 required_error: 'Room id is required!'
             }),
-            action: z.enum(['like', 'unlike', 'removelike', 'removeunlike']),
-            token: z.string({
-                required_error: 'Token is required!'
-            })
+            action: z.enum(['like', 'unlike', 'removelike', 'removeunlike'])
         });
         yield schema.parseAsync({
             messageId,
             roomId,
             action,
-            token
         });
         return {
             success: true
@@ -46,18 +41,15 @@ const validation = (messageId, roomId, action, token) => __awaiter(void 0, void 
         };
     }
 });
-const likeOrUnlikeMessageController = (messageId, roomId, action, token) => __awaiter(void 0, void 0, void 0, function* () {
+const likeOrUnlikeMessageController = (messageId, roomId, action, user) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const isRequestValid = yield validation(messageId, roomId, action, token);
+        const isRequestValid = yield validation(messageId, roomId, action);
         if (!(isRequestValid === null || isRequestValid === void 0 ? void 0 : isRequestValid.success)) {
             return isRequestValid;
         }
-        const user = extractDataAndCallVerifyToken(token);
-        if (!(user === null || user === void 0 ? void 0 : user._id)) {
-            return {
-                success: false,
-                errorMessage: networkResponseErrors.INCORRECT_AUTH_TOKEN
-            };
+        const isUserParticipantOfChatRoom = yield isUserParticipantOfGivenChatRooms([roomId], user === null || user === void 0 ? void 0 : user._id);
+        if (!(isUserParticipantOfChatRoom === null || isUserParticipantOfChatRoom === void 0 ? void 0 : isUserParticipantOfChatRoom.success)) {
+            return isUserParticipantOfChatRoom;
         }
         const editedMessage = yield likeOrUnlikeChatMessage(messageId, roomId, user === null || user === void 0 ? void 0 : user._id, action);
         if (typeof editedMessage === 'string') {
